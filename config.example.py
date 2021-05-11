@@ -2,4 +2,15 @@ SECRET_KEY = b'secret'
 
 SPOTIFY_CLIENT_ID = ''
 SPOTIFY_CLIENT_SECRET = ''
-SQLALCHEMY_DATABASE_URI = ''
+
+MONGODB_DB = 'listenParty'
+MONGODB_HOST = "127.0.0.1"
+# MONGODB_USERNAME = "listenParty-mongo"
+# MONGODB_PASSWORD = "listenParty-mongo-password"
+
+CACHE_TYPE = "redis"
+CACHE_KEY_PREFIX = "listenParty_"
+CACHE_REDIS_HOST = "127.0.0.1"
+
+CORS_SUPPORTS_CREDENTIALS = True
+CORS_ALLOW_ORIGIN = "*"
