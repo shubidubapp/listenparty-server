@@ -1,4 +1,4 @@
-from flask import Blueprint, jsonify, url_for
+from flask import Blueprint, jsonify, url_for, current_app
 from flask_login import current_user, login_user, login_required, logout_user
 from mongoengine import DoesNotExist
 from werkzeug.utils import redirect
@@ -43,7 +43,7 @@ def auth():
 
 @blueprint.route('/login')
 def login():
-    redirect_uri = url_for('api.auth', _external=True)
+    redirect_uri = url_for('api.auth', _external=True, _scheme=current_app.config.get("EXTERNAL_SCHEME", "http"))
     return oauth.spotify.authorize_redirect(redirect_uri, _external=True)
 
 
