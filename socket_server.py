@@ -9,7 +9,7 @@ from mongoengine import DoesNotExist
 from extensions import cache
 from models import ACTIVITY, Stream, User
 
-sio = SocketIO(cors_allowed_origins="*")
+sio = SocketIO()
 
 
 def user_key(user=None):

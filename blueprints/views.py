@@ -38,4 +38,3 @@ def homepage(path):
     if path != "" and os.path.exists(current_app.template_folder + '/' + path):
         return send_from_directory(current_app.template_folder, path)
     return send_from_directory(current_app.template_folder, 'index.html')
-

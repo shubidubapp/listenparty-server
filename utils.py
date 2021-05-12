@@ -14,9 +14,9 @@ def configure_global_logging():
     logger.addHandler(file_handler)
     logger.setLevel("DEBUG")
 
-    log = logging.getLogger('authlib')
-    log.setLevel("DEBUG")
-    log.addHandler(logging.StreamHandler(sys.stdout))
+    # log = logging.getLogger('authlib')
+    # log.setLevel("DEBUG")
+    # log.addHandler(logging.StreamHandler(sys.stdout))
 
     # noinspection PyArgumentList
     logging.basicConfig(format=log_format, level='DEBUG', handlers=[file_handler])
