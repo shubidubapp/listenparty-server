@@ -110,11 +110,10 @@ def start_stream(data):
                 "status": prepare_status()
             }
     except DoesNotExist:
-        pass
+        stream = Stream()
+        stream.streamer = current_user.to_dbref()
+        stream.name = data["stream_name"]
 
-    stream = Stream()
-    stream.streamer = current_user.to_dbref()
-    stream.name = data["stream_name"]
     current_user.activity = ACTIVITY.STREAM
     current_user.stream = stream
 
@@ -139,7 +138,7 @@ def listen_stream(data):
             "status": prepare_status()
         }
     try:
-        stream: Stream = get_stream(data["stream_name"])
+        stream: Stream = get_stream(data["stream_name"], check_active=True)
     except DoesNotExist:
         return {
             "message": message("This is not an active stream", "ERROR"),
@@ -158,7 +157,7 @@ def listen_stream(data):
             "status": prepare_status()
         }
 
-    stream.listeners.update(push__listeners=current_user.username)
+    stream.update(push__listeners=current_user.to_dbref())
     current_user.activity = ACTIVITY.LISTEN
     current_user.stream = stream
     add_to_room(stream_room_key(stream.name), request.sid)
@@ -171,14 +170,14 @@ def listen_stream(data):
     }
 
 
-@sio.on("update_stream")
+@sio.on("streamer_update")
 @authenticated_only
-def update_stream(data):
+def streamer_update(data):
     if current_user.activity == ACTIVITY.STREAM and data.get("stream_data", None):
         current_app.logger.debug(
             f"Stream update for '{current_user.stream.name}', {len(current_user.stream.listeners)} listeners.")
-        sio.emit("update_stream",
-                 data={"stream_data": data["stream_data"], "status": prepare_status()},
+        sio.emit("listener_update",
+                 data={"stream_data": data["stream_data"]},
                  room=stream_room_key(current_user.stream.name),
                  skip_sid=request.sid)
         return {

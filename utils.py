@@ -1,6 +1,21 @@
 import logging
-import sys
 from logging.handlers import TimedRotatingFileHandler
+
+
+done_page = """\
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Authorized</title>
+</head>
+<body>
+    <script>
+        window.close();
+    </script>
+</body>
+</html>
+    """
 
 
 def configure_global_logging():

@@ -10,7 +10,7 @@ db = MongoEngine()
 cache = Cache()
 cors = CORS()
 
-login_manager.login_view = "views.login"
+login_manager.login_view = "api.login"
 
 
 def fetch_token():
