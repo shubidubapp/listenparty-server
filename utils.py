@@ -1,8 +1,10 @@
 import logging
 from logging.handlers import TimedRotatingFileHandler
 
+from flask_login import current_user, AnonymousUserMixin
 from pymongo import monitoring
 
+from models import ACTIVITY
 
 done_page = """\
 <!DOCTYPE html>
@@ -61,3 +63,21 @@ def configure_global_logging():
 
     # noinspection PyArgumentList
     logging.basicConfig(format=log_format, level='DEBUG', handlers=[file_handler])
+
+
+def prepare_status():
+    if isinstance(current_user, AnonymousUserMixin):
+        _status = {
+            "activity": ACTIVITY.NONE.name,
+            "username": None,
+            "stream": None,
+            "listener": None
+        }
+    else:
+        _status = {
+            "activity": current_user.activity.name,
+            "username": current_user.username,
+            "stream": current_user.stream.name if current_user.stream else None,
+            "listener": len(current_user.stream.listeners) if current_user.stream else None
+        }
+    return _status

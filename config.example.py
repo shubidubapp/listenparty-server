@@ -27,6 +27,8 @@ class Config(object):
     CORS_ALLOW_ORIGIN = "*"
     EXTERNAL_SCHEME = "http"
 
+    MAX_PAGE_SIZE = 50
+
 
 class ProductionConfig(Config):
     SECRET_KEY = b'extra_secret'

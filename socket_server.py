@@ -8,6 +8,7 @@ from mongoengine import DoesNotExist
 
 from extensions import cache
 from models import ACTIVITY, Stream, User
+from utils import prepare_status
 
 sio = SocketIO()
 
@@ -187,16 +188,6 @@ def streamer_update(data):
         "message": message("Pretty sure you're doing something you shouldn't be doing.", "ERROR"),
         "status": prepare_status()
     }
-
-
-def prepare_status():
-    _status = {
-        "activity": current_user.activity.name,
-        "username": current_user.username,
-        "stream": current_user.stream.name if current_user.stream else None,
-        "listener": len(current_user.stream.listeners) if current_user.stream else None
-    }
-    return _status
 
 
 def message(text, status_):

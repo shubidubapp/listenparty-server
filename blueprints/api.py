@@ -1,10 +1,12 @@
-from flask import Blueprint, jsonify, url_for, current_app
+from flask import Blueprint, jsonify, url_for, current_app, request
 from flask_login import current_user, login_user, login_required, logout_user
 from mongoengine import DoesNotExist
 from werkzeug.utils import redirect
+from mongoengine.queryset.visitor import Q
 
 from extensions import oauth
-from models import User, Token
+from models import User, Token, Stream
+from utils import prepare_status
 
 blueprint = Blueprint("api", __name__, url_prefix="/api")
 
@@ -61,3 +63,49 @@ def logout():
 @blueprint.route('/logged-in')
 def logged_in():
     return jsonify({"loggedIn": current_user.is_authenticated})
+
+
+@blueprint.route('/status')
+def status():
+    return {"status": prepare_status()}
+
+
+@blueprint.route('/stream-list')
+@login_required
+def stream_list():
+    max_page_size = current_app.config.get("MAX_PAGE_SIZE", 20)
+    order_by = request.args.get("order_by", default="-listeners_length")
+    active = str(request.args.get("active", default="true")).lower() in ["true", "yes", "1"]
+    try:
+        from_ = int(request.args.get("from", default=0))
+        amount = int(request.args.get("amount", default=max_page_size))
+        to = min(int(request.args.get("to", default=from_ + amount)), from_ + max_page_size)
+    except ValueError:
+        return
+
+    filter_ = request.args.get("filter", default=None)
+    q = Q(active=active)
+    if filter_ and len(filter_) >= 5:
+        q = q & Q(name__icontains=filter_)
+
+    streams = Stream.objects(q).order_by(order_by, "-date")[from_:to].select_related(1)
+    stream_count = Stream.objects(q).count()
+    user_default_img = url_for(
+        'static', filename="user_default.png",
+        _external=True, _scheme=current_app.config.get("EXTERNAL_SCHEME", "http")
+    )
+    return {
+        "streams": [
+            {
+                "name": stream.name, "listeners_length": stream.listeners_length,
+                "utcdate": stream.date,
+                "streamer": {
+                    "name": stream.streamer.display_name if stream.streamer.display_name else stream.streamer.username,
+                    "img": stream.streamer.img if stream.streamer.img else user_default_img
+                },
+                "order_index": from_ + index,
+                "pk": stream.pk.__repr__()
+            } for index, stream in enumerate(streams)
+        ],
+        "stream_count": stream_count
+    }
