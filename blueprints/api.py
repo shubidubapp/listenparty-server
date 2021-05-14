@@ -39,7 +39,7 @@ def auth():
 
     user.display_name = user_me["display_name"]
     if len(user_me["images"]) > 0:
-        user.img = user_me["images"]["url"]
+        user.img = user_me["images"][0]["url"]
 
     user.token.set_from_dict(token)
     user.save()
