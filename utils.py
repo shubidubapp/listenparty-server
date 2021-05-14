@@ -76,7 +76,7 @@ def prepare_status():
     else:
         _status = {
             "activity": current_user.activity.name,
-            "username": current_user.username,
+            "username": current_user.display_name if current_user.display_name else current_user.username,
             "stream": current_user.stream.name if current_user.stream else None,
             "listener": len(current_user.stream.listeners) if current_user.stream else None
         }
