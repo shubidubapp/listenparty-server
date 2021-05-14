@@ -1,7 +1,9 @@
+from datetime import datetime
 from enum import Enum
 
+from flask import current_app
 from mongoengine.fields import EnumField, ReferenceField, StringField, ListField, EmbeddedDocumentField, BooleanField, \
-    LazyReferenceField, IntField
+    LazyReferenceField, IntField, URLField, DateTimeField
 
 from extensions import db, login_manager
 
@@ -29,6 +31,8 @@ class Token(db.EmbeddedDocument):
 
 class User(db.Document):
     username = StringField(primary_key=True)
+    display_name = StringField()
+    img = URLField()
     activity = EnumField(ACTIVITY, default=ACTIVITY.NONE)
     stream = ReferenceField('Stream')
 
@@ -58,8 +62,17 @@ class Stream(db.Document):
     active = BooleanField(default=True)
 
     listeners = ListField(ReferenceField("User"), default=[])
+    listeners_length = IntField(default=0)
+    listeners_max = IntField(default=0)
 
     name = StringField()
+
+    date = DateTimeField(default=datetime.utcnow)
+
+    def save(self, *args, **kwargs):
+        self.listeners_length = len(self.listeners)
+        self.listeners_max = max(self.listeners_length, self.listeners_max)
+        super(Stream, self).save(*args, **kwargs)
 
 
 class Log(db.Document):
