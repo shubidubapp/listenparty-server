@@ -1,6 +1,8 @@
 import logging
 from logging.handlers import TimedRotatingFileHandler
 
+from pymongo import monitoring
+
 
 done_page = """\
 <!DOCTYPE html>
@@ -18,16 +20,40 @@ done_page = """\
     """
 
 
+class CommandLogger(monitoring.CommandListener):
+    def __init__(self):
+        self.logger = logging.getLogger("PyMongo")
+
+    def started(self, event):
+        self.logger.debug("Command {0.command_name} with request id "
+                          "{0.request_id} started on server "
+                          "{0.connection_id}".format(event))
+
+    def succeeded(self, event):
+        self.logger.debug("Command {0.command_name} with request id "
+                          "{0.request_id} on server {0.connection_id} "
+                          "succeeded in {0.duration_micros} "
+                          "microseconds".format(event))
+
+    def failed(self, event):
+        self.logger.debug("Command {0.command_name} with request id "
+                          "{0.request_id} on server {0.connection_id} "
+                          "failed in {0.duration_micros} "
+                          "microseconds".format(event))
+
+
 def configure_global_logging():
-    log_format = '%(asctime)s--%(name)s:%(threadName)s:%(levelname)s:%(message)s'
+    log_format = '%(asctime)s--%(name)s:%(levelname)s:%(message)s'
     log_file = ".logs/listenParty.log"
 
-    file_handler = TimedRotatingFileHandler(filename=log_file, when='midnight', backupCount=5)
+    file_handler = TimedRotatingFileHandler(filename=log_file, when='midnight', backupCount=2)
     file_handler.setLevel("DEBUG")
     file_handler.setFormatter(logging.Formatter(log_format))
     logger = logging.getLogger()
     logger.addHandler(file_handler)
     logger.setLevel("DEBUG")
+
+    monitoring.register(CommandLogger())
 
     # log = logging.getLogger('authlib')
     # log.setLevel("DEBUG")
