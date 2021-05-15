@@ -1,5 +1,4 @@
 import functools
-from datetime import datetime
 
 from flask import request, current_app
 from flask_login import current_user
@@ -8,7 +7,7 @@ from mongoengine import DoesNotExist
 
 from extensions import cache
 from models import ACTIVITY, Stream, User
-from utils import prepare_status
+from utils import prepare_status, message
 
 sio = SocketIO()
 
@@ -187,12 +186,6 @@ def streamer_update(data):
     return {
         "message": message("Pretty sure you're doing something you shouldn't be doing.", "ERROR"),
         "status": prepare_status()
-    }
-
-
-def message(text, status_):
-    return {
-        "text": text, "status": status_, "time": datetime.utcnow().timestamp()
     }
 
 

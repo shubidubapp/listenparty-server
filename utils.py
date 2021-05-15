@@ -1,4 +1,5 @@
 import logging
+from datetime import datetime
 from logging.handlers import TimedRotatingFileHandler
 
 from flask_login import current_user, AnonymousUserMixin
@@ -63,6 +64,12 @@ def configure_global_logging():
 
     # noinspection PyArgumentList
     logging.basicConfig(format=log_format, level='DEBUG', handlers=[file_handler])
+
+
+def message(text, status_):
+    return {
+        "text": text, "status": status_, "time": datetime.utcnow().timestamp()
+    }
 
 
 def prepare_status():
