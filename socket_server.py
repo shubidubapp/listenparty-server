@@ -183,10 +183,6 @@ def streamer_update(data):
         return {
             "status": prepare_status()
         }
-    return {
-        "message": message("Pretty sure you're doing something you shouldn't be doing.", "ERROR"),
-        "status": prepare_status()
-    }
 
 
 @sio.on("status")
