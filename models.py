@@ -1,7 +1,6 @@
 from datetime import datetime
 from enum import Enum
 
-from flask import current_app
 from mongoengine.fields import EnumField, ReferenceField, StringField, ListField, EmbeddedDocumentField, BooleanField, \
     LazyReferenceField, IntField, URLField, DateTimeField
 
@@ -30,7 +29,7 @@ class Token(db.EmbeddedDocument):
 
 
 class User(db.Document):
-    username = StringField(primary_key=True)
+    username = StringField(unique=True)
     display_name = StringField()
     img = URLField()
     activity = EnumField(ACTIVITY, default=ACTIVITY.NONE)
@@ -42,7 +41,7 @@ class User(db.Document):
         return f"<User::{self.username}>"
 
     def get_id(self):
-        return self.username
+        return self.pk.__str__()
 
     @property
     def is_authenticated(self):
@@ -83,4 +82,4 @@ class Log(db.Document):
 
 @login_manager.user_loader
 def load_user(user_id):
-    return User.objects.get(username=user_id)
+    return User.objects.get(pk=user_id)
