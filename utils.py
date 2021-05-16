@@ -16,7 +16,7 @@ done_page = """\
 </head>
 <body>
     <script>
-        window.close();
+        setTimeout(window.close, 500)
     </script>
 </body>
 </html>
@@ -78,13 +78,11 @@ def prepare_status():
             "activity": ACTIVITY.NONE.name,
             "username": None,
             "stream": None,
-            "listener": None
         }
     else:
         _status = {
             "activity": current_user.activity.name,
             "username": current_user.display_name if current_user.display_name else current_user.username,
             "stream": current_user.stream.name if current_user.stream else None,
-            "listener": len(current_user.stream.listeners) if current_user.stream else None
         }
     return _status

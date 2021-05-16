@@ -31,6 +31,9 @@ scope_list = [
     "user-read-playback-state",
     "user-read-currently-playing",
     "user-modify-playback-state",
+    "streaming",
+    "user-read-email",
+    "user-read-private"
 ]
 scope = " ".join(scope_list)
 
