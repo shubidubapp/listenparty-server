@@ -55,23 +55,30 @@ class User(db.Document):
     def is_anonymous(self):
         return False
 
+    meta = {'indexes': [
+        {'fields': ['$username', "$display_name"],
+         'default_language': 'english',
+         'weights': {'username': 5, 'display_name': 5}
+         }
+    ]}
+
 
 class Stream(db.Document):
     streamer = ReferenceField('User')
     active = BooleanField(default=True)
 
     listeners = ListField(ReferenceField("User"), default=[])
-    listeners_length = IntField(default=0)
-    listeners_max = IntField(default=0)
 
     name = StringField()
 
     date = DateTimeField(default=datetime.utcnow)
 
-    def save(self, *args, **kwargs):
-        self.listeners_length = len(self.listeners)
-        self.listeners_max = max(self.listeners_length, self.listeners_max)
-        super(Stream, self).save(*args, **kwargs)
+    meta = {'indexes': [
+        {'fields': ['$name'],
+         'default_language': 'english',
+         'weights': {'name': 5}
+         }
+    ]}
 
 
 class Log(db.Document):

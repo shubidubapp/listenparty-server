@@ -1,4 +1,5 @@
 import logging
+import re
 from datetime import datetime
 from logging.handlers import TimedRotatingFileHandler
 
@@ -16,7 +17,9 @@ done_page = """\
 </head>
 <body>
     <script>
-        setTimeout(window.close, 500)
+        window.onload = function() {
+            window.close()
+        }
     </script>
 </body>
 </html>
@@ -86,3 +89,12 @@ def prepare_status():
             "stream": current_user.stream.name if current_user.stream else None,
         }
     return _status
+
+
+class Validator:
+    # match any string written with any word character, - or " "(space) but ends with alphabet or digits
+    stream_name_re = re.compile(r"^[\w\- ]{4,19}[a-zA-Z0-9]$")
+
+    @classmethod
+    def stream_name(cls, text):
+        return cls.stream_name_re.match(text) is not None

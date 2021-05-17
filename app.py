@@ -1,7 +1,8 @@
 from flask import Flask
 
 # noinspection PyUnresolvedReferences
-import monkey_patch
+if __name__ == '__main__':
+    import monkey_patch
 from config import config
 from extensions import oauth, cache, login_manager, db, cors
 from socket_server import sio
@@ -33,13 +34,14 @@ def register_blueprints(_app):
     _app.register_blueprint(views_blueprint)
 
 
+print("Creating app.")
+app = Flask(__name__, static_folder="static/", template_folder="templates/")
+print("Reading config.")
+app.config.from_object(config)
+print("init extensions and register blueprints")
+init_app(app)
+register_blueprints(app)
+
 if __name__ == '__main__':
-    print("Creating app.")
-    app = Flask(__name__, static_folder="static/", template_folder="templates/")
-    print("Reading config.")
-    app.config.from_object(config)
-    print("init extensions and register blueprints")
-    init_app(app)
-    register_blueprints(app)
     print(f"starting at: {app.config['APP_HOST']}:{app.config['APP_PORT']}")
     sio.run(app, host=app.config["APP_HOST"], port=app.config['APP_PORT'])

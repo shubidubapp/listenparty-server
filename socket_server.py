@@ -5,6 +5,7 @@ from flask_login import current_user
 from flask_socketio import SocketIO, disconnect, leave_room, rooms, join_room
 from mongoengine import DoesNotExist
 
+import utils
 from extensions import cache
 from models import ACTIVITY, Stream, User
 from utils import prepare_status, message
@@ -44,6 +45,7 @@ def authenticated_only(f):
 def connect():
     prev = cache.get(user_key())
     if prev:
+
         disconnect(prev)
     cache.set(user_key(), request.sid)
 
@@ -97,9 +99,11 @@ def stop():
 @sio.on("start_stream")
 @authenticated_only
 def start_stream(data):
-    if 20 < len(data["stream_name"]) < 5:
+    data["stream_name"] = data["stream_name"].strip()
+    if not utils.Validator.stream_name_re(data["stream_name"]):
         return {
-            "message": message("Stream name must be longer than 5 and shorter than 20 characters.", "ERROR"),
+            "message": message("Stream name must be between 5-20 characters and "
+                               "should have alphabet, digits, underscore, dash or space characters", "ERROR"),
             "status": prepare_status()
         }
     try:
@@ -132,16 +136,11 @@ def start_stream(data):
 @sio.on("listen_stream")
 @authenticated_only
 def listen_stream(data):
-    if 20 < len(data["stream_name"]) < 5:
+    data["stream_name"] = data["stream_name"].strip()
+    if not utils.Validator.stream_name_re(data["stream_name"]):
         return {
-            "message": message("Stream name must be longer than 5 and shorter than 20 characters.", "ERROR"),
-            "status": prepare_status()
-        }
-    try:
-        stream: Stream = get_stream(data["stream_name"], check_active=True)
-    except DoesNotExist:
-        return {
-            "message": message("This is not an active stream", "ERROR"),
+            "message": message("Stream name must be between 5-20 characters and "
+                               "should have alphabet, digits, underscore, dash or space characters", "ERROR"),
             "status": prepare_status()
         }
 
@@ -154,6 +153,14 @@ def listen_stream(data):
     if current_user.activity == ACTIVITY.LISTEN:
         return {
             "message": message("You can't start listening before leaving previous.", "ERROR"),
+            "status": prepare_status()
+        }
+
+    try:
+        stream: Stream = get_stream(data["stream_name"], check_active=True)
+    except DoesNotExist:
+        return {
+            "message": message("This is not an active stream", "ERROR"),
             "status": prepare_status()
         }
 
@@ -173,6 +180,21 @@ def listen_stream(data):
 @sio.on("streamer_update")
 @authenticated_only
 def streamer_update(data):
+    if current_user.activity == ACTIVITY.STREAM and data.get("stream_data", None):
+        current_app.logger.debug(
+            f"Stream update for '{current_user.stream.name}', {len(current_user.stream.listeners)} listeners.")
+        sio.emit("listener_update",
+                 data={"stream_data": data["stream_data"]},
+                 room=stream_room_key(current_user.stream.name),
+                 skip_sid=request.sid)
+        return {
+            "status": prepare_status()
+        }
+
+
+@sio.on("chat_message")
+@authenticated_only
+def chat_message(data):
     if current_user.activity == ACTIVITY.STREAM and data.get("stream_data", None):
         current_app.logger.debug(
             f"Stream update for '{current_user.stream.name}', {len(current_user.stream.listeners)} listeners.")

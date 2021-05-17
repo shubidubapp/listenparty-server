@@ -77,37 +77,35 @@ def status():
 @login_required
 def stream_list():
     max_page_size = current_app.config.get("MAX_PAGE_SIZE", 20)
-    order_by = request.args.get("order_by", default="-listeners_length")
+    order_by = request.args.get("order_by", default=None)
     active = str(request.args.get("active", default="true")).lower() in ["true", "yes", "1"]
     try:
         from_ = int(request.args.get("from", default=0))
         amount = int(request.args.get("amount", default=max_page_size))
-        to = min(int(request.args.get("to", default=from_ + amount)), from_ + max_page_size)
     except ValueError:
         return
 
     filter_ = request.args.get("filter", default=None)
-    q = Q(active=active)
-    if filter_ and len(filter_) >= 5:
-        q = q & Q(name__icontains=filter_)
 
-    streams = Stream.objects(q).order_by(order_by, "-date")[from_:to].select_related(1)
-    stream_count = Stream.objects(q).count()
+    result = stream_list_query(from_, amount, filter_, order_by, active)
+    stream_count = result["stream_count"]
+    streams = result["streams"]
     user_default_img = url_for(
         'static', filename="user_default.png",
         _external=True, _scheme=current_app.config.get("EXTERNAL_SCHEME", "http")
     )
+    print(streams)
     return {
         "streams": [
             {
-                "name": stream.name, "listeners_length": stream.listeners_length,
-                "utcdate": stream.date,
+                "name": stream["name"], "listeners_length": stream["listeners_length"],
+                "utcdate": stream["date"],
                 "streamer": {
-                    "name": stream.streamer.display_name if stream.streamer.display_name else stream.streamer.username,
-                    "img": stream.streamer.img if stream.streamer.img else user_default_img
+                    "name": stream["streamer"][0].get("display_name", stream["streamer"][0]["username"]),
+                    "img": stream["streamer"][0].get("img", user_default_img)
                 },
                 "order_index": from_ + index,
-                "pk": stream.pk.__repr__()
+                "pk": stream["_id"].__str__()
             } for index, stream in enumerate(streams)
         ],
         "stream_count": stream_count
@@ -150,6 +148,37 @@ def listener_list():
         ],
         "listener_count": result["listener_count"]
     }
+
+
+def stream_list_query(from_, amount, filter_=None, order_by=None, active=None):
+    filter_ = filter_ or ""
+    order_by = order_by or {"listeners_length": -1}
+    active = active if active is not None else True
+
+    pipeline = [
+        {"$match": {"$expr": {"$and": [
+            {"$regexMatch": {"input": "$name", "regex": f".*{filter_}.*", "options": "i"}},
+            {"$eq": ["$active", active]}
+        ]}}},
+        {"$lookup": {"from": "user", "localField": "streamer", "foreignField": "_id", "as": "streamer"}},
+        {"$project": {
+            "listeners_length": {"$size": "$listeners"},
+            "date": 1,
+            "name": 1,
+            "active": 1,
+            "streamer": 1,
+        }},
+        {"$sort": {"date": -1, "+name": 1, **order_by}},
+        {"$group": {"_id": None, "stream_count": {"$sum": 1}, "streams": {"$push": "$$ROOT"}}},
+        {"$project": {
+            "stream_count": 1,
+            "streams": {"$slice": ["$streams", from_, amount]}
+        }}
+    ]
+    try:
+        return Stream.objects().aggregate(pipeline).next()
+    except StopIteration:
+        return {"stream_count": 0, "streams": []}
 
 
 def listener_query(stream_id, filter_, from_, amount):
