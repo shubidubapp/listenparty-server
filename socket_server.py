@@ -4,11 +4,13 @@ from flask import request, current_app
 from flask_login import current_user
 from flask_socketio import SocketIO, disconnect, leave_room, rooms, join_room
 from mongoengine import DoesNotExist
+from pydantic import ValidationError
 
 import utils
-from extensions import cache
-from models import ACTIVITY, Stream, User
-from utils import prepare_status, message
+from extensions import cache, oauth
+from models import Stream, User, ChatQueue, ChatDJ, ChatMessage
+from schemas import AddDJSchema, AddQueueSchema, MessageSchema, ErrorSchema
+from utils import prepare_status, message, ACTIVITY
 
 sio = SocketIO()
 
@@ -45,7 +47,6 @@ def authenticated_only(f):
 def connect():
     prev = cache.get(user_key())
     if prev:
-
         disconnect(prev)
     cache.set(user_key(), request.sid)
 
@@ -64,13 +65,17 @@ def error_handler(e):
 @sio.on("stop")
 @authenticated_only
 def stop():
+    stream = current_user.stream
     if current_user.activity == ACTIVITY.LISTEN:
         current_app.logger.debug(f"User: {current_user} stopped listening.")
-        current_user.stream.update(pull__listeners=current_user)
         current_user.stream = None
         current_user.activity = ACTIVITY.NONE
         current_user.save()
         leave_rooms()
+
+        stream.update(pull__listeners=current_user.pk)
+        sio.emit("listener_left", to=stream_room_key(stream.name))
+
         return {
             "message": message("Listening is stopped", "ERROR"),
             "status": prepare_status()
@@ -78,7 +83,7 @@ def stop():
     elif current_user.activity == ACTIVITY.STREAM:
         stream: Stream = current_user.stream
         current_app.logger.debug(f"User: {current_user} stopped streaming.")
-        sio.emit("stream_stopped", room=stream_room_key(stream.name),
+        sio.emit("stream_stopped", to=stream_room_key(stream.name),
                  data={"message": message("Streamer stopped.", "ERROR"),
                        "status": prepare_status()},
                  skip_sid=request.sid)
@@ -100,7 +105,7 @@ def stop():
 @authenticated_only
 def start_stream(data):
     data["stream_name"] = data["stream_name"].strip()
-    if not utils.Validator.stream_name_re(data["stream_name"]):
+    if not utils.Validator.stream_name_re.match(data["stream_name"]):
         return {
             "message": message("Stream name must be between 5-20 characters and "
                                "should have alphabet, digits, underscore, dash or space characters", "ERROR"),
@@ -185,26 +190,107 @@ def streamer_update(data):
             f"Stream update for '{current_user.stream.name}', {len(current_user.stream.listeners)} listeners.")
         sio.emit("listener_update",
                  data={"stream_data": data["stream_data"]},
-                 room=stream_room_key(current_user.stream.name),
+                 to=stream_room_key(current_user.stream.name),
                  skip_sid=request.sid)
         return {
             "status": prepare_status()
         }
 
 
-@sio.on("chat_message")
+@sio.on("dj_add")
 @authenticated_only
-def chat_message(data):
-    if current_user.activity == ACTIVITY.STREAM and data.get("stream_data", None):
-        current_app.logger.debug(
-            f"Stream update for '{current_user.stream.name}', {len(current_user.stream.listeners)} listeners.")
-        sio.emit("listener_update",
-                 data={"stream_data": data["stream_data"]},
-                 room=stream_room_key(current_user.stream.name),
-                 skip_sid=request.sid)
-        return {
-            "status": prepare_status()
-        }
+def dj_add(data):
+    try:
+        schema = AddDJSchema(**data)
+    except ValidationError as e:
+        schema = ErrorSchema(errors=e.errors())
+        sio.emit("chat_action", data=schema.dict(exclude_none=True))
+        return
+
+    if not (current_user == current_user.stream.streamer or current_user in current_user.stream.dj):
+        schema = ErrorSchema(message="You dont have the permission for that")
+        sio.emit("chat_action", data=schema.dict(exclude_none=True))
+        return
+    try:
+        new_dj: User = User.objects.get(username=schema.who)
+    except DoesNotExist:
+        schema = ErrorSchema(message=f"User, '{schema.who}', doesn't exist.")
+        sio.emit("chat_action", data=schema.dict(exclude_none=True))
+        return
+
+    if new_dj not in current_user.stream.dj and new_dj != current_user.stream.streamer:
+        current_user.stream.update(push__dj=new_dj)
+        model = ChatDJ()
+        model.sender = current_user
+        model.stream = current_user.stream
+        model.date = schema.date
+        model.who = schema.who
+        model.save()
+
+        sio.emit("chat_action",
+                 data={**schema.dict(), "sender": current_user.display_name},
+                 to=stream_room_key(current_user.stream.name))
+    else:
+        schema = ErrorSchema(message=f"User, '{schema.who}', is already a DJ.")
+        sio.emit("chat_action", data=schema.dict(exclude_none=True))
+        return
+
+
+@sio.on("queue_add")
+@authenticated_only
+def queue_add(data):
+    try:
+        schema = AddQueueSchema(**data)
+    except ValidationError as e:
+        schema = ErrorSchema(errors=e.errors())
+        sio.emit("chat_action", data=schema.dict(exclude_none=True))
+        return
+
+    if not (current_user == current_user.stream.streamer or current_user in current_user.stream.dj):
+        schema = ErrorSchema(message="You dont have the permission for that")
+        sio.emit("chat_action", data=schema.dict(exclude_none=True))
+        return
+
+    resp = oauth.spotify.get(f"tracks/{schema.track}")
+    if resp.status_code != 200:
+        schema = ErrorSchema(message="Invalid track")
+        sio.emit("chat_action", data=schema.dict(exclude_none=True))
+        return
+
+    model = ChatQueue()
+    model.sender = current_user
+    model.stream = current_user.stream
+    model.date = schema.date
+    model.track = schema.track
+    model.save()
+    key = cache.get(user_key())
+    sio.emit("add_queue", to=key, data={"track": schema.track}, include_self=True)
+    sio.emit("chat_action",
+             data={**schema.dict(), "sender": current_user.display_name},
+             to=stream_room_key(current_user.stream.name), include_self=True)
+    return {}
+
+
+@sio.on("text_message")
+@authenticated_only
+def text_message(data):
+    try:
+        schema = MessageSchema(**data)
+    except ValidationError as e:
+        schema = ErrorSchema(errors=e.errors())
+        sio.emit("chat_action", data=schema.dict(exclude_none=True))
+        return
+
+    model = ChatMessage()
+    model.sender = current_user
+    model.stream = current_user.stream
+    model.date = schema.date
+    model.message = schema.message
+    model.save()
+
+    sio.emit("chat_action",
+             data={**schema.dict(), "sender": current_user.display_name},
+             to=stream_room_key(current_user.stream.name), include_self=True)
 
 
 @sio.on("status")
@@ -215,7 +301,8 @@ def status():
 def leave_rooms(sid=None):
     # user should be in max 1 room.
     for room in rooms(sid=sid):
-        leave_room(room)
+        if room != sid:
+            leave_room(room)
 
 
 def add_to_room(room_name, sid=None):

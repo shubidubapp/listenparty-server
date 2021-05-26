@@ -1,16 +1,20 @@
 from authlib.integrations.flask_client import OAuth
+from flask import Flask
 from flask_caching import Cache
 from flask_cors import CORS
 from flask_login import LoginManager, current_user
-from flask_mongoengine import MongoEngine
+from mongoengine import connect
 
 login_manager = LoginManager()
 oauth = OAuth()
-db = MongoEngine()
 cache = Cache()
 cors = CORS()
 
 login_manager.login_view = "api.login"
+
+
+def init_db(app: Flask):
+    connect(**app.config.get_namespace("MONGODB_"))
 
 
 def fetch_token():

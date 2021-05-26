@@ -1,12 +1,15 @@
 import logging
 import re
-from datetime import datetime
+from datetime import datetime, timezone
+from enum import Enum
 from logging.handlers import TimedRotatingFileHandler
+from typing import Any
 
+from flask.json import JSONEncoder
 from flask_login import current_user, AnonymousUserMixin
+from pydantic import BaseModel, json
 from pymongo import monitoring
 
-from models import ACTIVITY
 
 done_page = """\
 <!DOCTYPE html>
@@ -24,6 +27,22 @@ done_page = """\
 </body>
 </html>
     """
+
+
+class ACTIVITY(Enum):
+    NONE = 0
+    STREAM = 1
+    LISTEN = 2
+
+
+class PydanticEncoder(JSONEncoder):
+    def default(self, o: Any) -> Any:
+
+        return json.pydantic_encoder(o)
+
+
+def utcnow():
+    return datetime.now(timezone.utc)
 
 
 class CommandLogger(monitoring.CommandListener):

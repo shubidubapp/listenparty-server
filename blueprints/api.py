@@ -5,7 +5,6 @@ from flask import Blueprint, jsonify, url_for, current_app, request
 from flask_login import current_user, login_user, login_required, logout_user
 from mongoengine import DoesNotExist
 from werkzeug.utils import redirect
-from mongoengine.queryset.visitor import Q
 
 from extensions import oauth
 from models import User, Token, Stream
@@ -17,7 +16,7 @@ blueprint = Blueprint("api", __name__, url_prefix="/api")
 @blueprint.route('/access_token')
 @login_required
 def access_token():
-    me = oauth.spotify.get("me")
+    _me = oauth.spotify.get("me")
     return jsonify({"access_token": current_user.token.access_token})
 
 
@@ -94,7 +93,6 @@ def stream_list():
         'static', filename="user_default.png",
         _external=True, _scheme=current_app.config.get("EXTERNAL_SCHEME", "http")
     )
-    print(streams)
     return {
         "streams": [
             {
@@ -133,8 +131,7 @@ def listener_list():
     filter_ = re.escape(request.args.get("filter", default=""))
 
     user_default_img = url_for(
-        'static', filename="user_default.png",
-        _external=True, _scheme=current_app.config.get("EXTERNAL_SCHEME", "http")
+        'static', filename="user_default.png"
     )
     result = listener_query(stream_id, filter_, from_, amount)
     return {
@@ -176,7 +173,7 @@ def stream_list_query(from_, amount, filter_=None, order_by=None, active=None):
         }}
     ]
     try:
-        return Stream.objects().aggregate(pipeline).next()
+        return Stream.objects().no_cache().aggregate(pipeline).next()
     except StopIteration:
         return {"stream_count": 0, "streams": []}
 
@@ -189,24 +186,29 @@ def listener_query(stream_id, filter_, from_, amount):
                 "from": "user",
                 "let": {"listeners": "$listeners"},
                 "pipeline": [
-                    {"$match":
-                        {"$expr":
-                            {"$and":
-                                [
-                                    {"$in": ["$_id", "$$listeners"]},
-                                    {"$or": [
-                                        {
-                                            "$regexMatch":
-                                                {"input": "$display_name", "regex": f".*{filter_}.*", "options": "i"}
-                                        },
-                                        {
-                                            "$regexMatch":
-                                                {"input": "$display_name", "regex": f".*{filter_}.*", "options": "i"}
-                                        }
-                                    ]}
-                                ]
+                    {
+                        "$match":
+                            {
+                                "$expr":
+                                    {
+                                        "$and":
+                                            [
+                                                {"$in": ["$_id", "$$listeners"]},
+                                                {"$or": [
+                                                    {
+                                                        "$regexMatch":
+                                                            {"input": "$display_name", "regex": f".*{filter_}.*",
+                                                             "options": "i"}
+                                                    },
+                                                    {
+                                                        "$regexMatch":
+                                                            {"input": "$display_name", "regex": f".*{filter_}.*",
+                                                             "options": "i"}
+                                                    }
+                                                ]}
+                                            ]
+                                    }
                             }
-                        }
                     }
                 ],
                 "as": "listeners"
@@ -222,7 +224,7 @@ def listener_query(stream_id, filter_, from_, amount):
         }},
     ]
     try:
-        return Stream.objects().aggregate(pipeline).next()
+        return Stream.objects().no_cache().aggregate(pipeline).next()
     except StopIteration:
         return {
             "listener_count": 0,

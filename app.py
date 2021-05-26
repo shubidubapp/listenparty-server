@@ -1,28 +1,30 @@
-from flask import Flask
+from flask import Flask, json
 
-# noinspection PyUnresolvedReferences
 if __name__ == '__main__':
+    # noinspection PyUnresolvedReferences
     import monkey_patch
 from config import config
-from extensions import oauth, cache, login_manager, db, cors
+from extensions import oauth, cache, login_manager, cors, init_db
 from socket_server import sio
-from utils import configure_global_logging
+from utils import configure_global_logging, PydanticEncoder
 
 configure_global_logging()
 
 
 def init_app(_app):
+    app.json_encoder = PydanticEncoder
     oauth.init_app(_app)
     sio.init_app(
         _app,
         message_queue=f"redis://{_app.config['CACHE_REDIS_HOST']}",
         cors_allowed_origins="*",
         logger=_app.config["DEBUG"],
-        engineio_logger=_app.config["DEBUG"]
+        engineio_logger=_app.config["DEBUG"],
+        json=json
     )
     cache.init_app(_app)
     login_manager.init_app(_app)
-    db.init_app(_app)
+    init_db(_app)
     cors.init_app(_app)
 
 
