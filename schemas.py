@@ -20,6 +20,7 @@ class ActionType(Enum):
 class ChatActionSchema(BaseModel):
     date: datetime = Field(default_factory=utcnow)
     action_type: ActionType
+    sender: str
 
 
 class MessageSchema(ChatActionSchema):
@@ -42,3 +43,4 @@ class ErrorSchema(ChatActionSchema):
     action_type = ActionType.error
     errors: typing.List[typing.Dict[str, typing.Any]] = None
     message: str = None
+    sender: str = None

@@ -201,7 +201,7 @@ def streamer_update(data):
 @authenticated_only
 def dj_add(data):
     try:
-        schema = AddDJSchema(**data)
+        schema = AddDJSchema(**data, sender=current_user.display_name)
     except ValidationError as e:
         schema = ErrorSchema(errors=e.errors())
         sio.emit("chat_action", data=schema.dict(exclude_none=True))
@@ -240,7 +240,7 @@ def dj_add(data):
 @authenticated_only
 def queue_add(data):
     try:
-        schema = AddQueueSchema(**data)
+        schema = AddQueueSchema(**data, sender=current_user.display_name)
     except ValidationError as e:
         schema = ErrorSchema(errors=e.errors())
         sio.emit("chat_action", data=schema.dict(exclude_none=True))
@@ -264,10 +264,18 @@ def queue_add(data):
     model.track = schema.track
     model.save()
     key = cache.get(user_key())
-    sio.emit("add_queue", to=key, data={"track": schema.track}, include_self=True)
-    sio.emit("chat_action",
-             data={**schema.dict(), "sender": current_user.display_name},
-             to=stream_room_key(current_user.stream.name), include_self=True)
+
+    stream_name = current_user.stream.name
+
+    def callback(data_):
+        if data_["status"] == "ok":
+            sio.emit("chat_action",
+                     data=schema.dict(exclude_none=True),
+                     to=stream_room_key(stream_name), include_self=True)
+
+    sio.emit("add_queue", to=key, data={"track": schema.track}, include_self=True,
+             callback=callback)
+
     return {}
 
 
@@ -275,7 +283,7 @@ def queue_add(data):
 @authenticated_only
 def text_message(data):
     try:
-        schema = MessageSchema(**data)
+        schema = MessageSchema(**data, sender=current_user.display_name)
     except ValidationError as e:
         schema = ErrorSchema(errors=e.errors())
         sio.emit("chat_action", data=schema.dict(exclude_none=True))
