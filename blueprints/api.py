@@ -1,14 +1,14 @@
 import re
 
 from bson import ObjectId
-from flask import Blueprint, jsonify, url_for, current_app, request
+from flask import Blueprint, jsonify, url_for, current_app, request, render_template_string
 from flask_login import current_user, login_user, login_required, logout_user
 from mongoengine import DoesNotExist
 from werkzeug.utils import redirect
 
 from extensions import oauth
 from models import User, Token, Stream
-from utils import prepare_status, message
+from utils import prepare_status, message, done_page
 
 blueprint = Blueprint("api", __name__, url_prefix="/api")
 
@@ -46,7 +46,7 @@ def auth():
     user.token.set_from_dict(token)
     user.save()
     login_user(user, remember=True)
-    return redirect(url_for('views.done'))
+    return redirect(url_for('api.done'))
 
 
 @blueprint.route('/login')
@@ -59,7 +59,12 @@ def login():
 @login_required
 def logout():
     logout_user()
-    return redirect(url_for('views.done'))
+    return redirect(url_for('api.done'))
+
+
+@blueprint.route('/done')
+def done():
+    return render_template_string(done_page)
 
 
 @blueprint.route('/logged-in')
