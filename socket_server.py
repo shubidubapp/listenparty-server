@@ -3,7 +3,7 @@ import functools
 from flask import request, current_app
 from flask_login import current_user
 from flask_socketio import SocketIO, disconnect, leave_room, rooms, join_room
-from mongoengine import DoesNotExist
+from mongoengine import DoesNotExist, Q
 from pydantic import ValidationError
 
 import utils
@@ -212,7 +212,7 @@ def dj_add(data):
         sio.emit("chat_action", data=schema.dict(exclude_none=True))
         return
     try:
-        new_dj: User = User.objects.get(username=schema.who)
+        new_dj: User = User.objects(Q(username=schema.who) | Q(display_name=schema.who)).get()
     except DoesNotExist:
         schema = ErrorSchema(message=f"User, '{schema.who}', doesn't exist.")
         sio.emit("chat_action", data=schema.dict(exclude_none=True))
