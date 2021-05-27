@@ -142,7 +142,7 @@ def start_stream(data):
 @authenticated_only
 def listen_stream(data):
     data["stream_name"] = data["stream_name"].strip()
-    if not utils.Validator.stream_name_re(data["stream_name"]):
+    if not utils.Validator.stream_name_re.match(data["stream_name"]):
         return {
             "message": message("Stream name must be between 5-20 characters and "
                                "should have alphabet, digits, underscore, dash or space characters", "ERROR"),
