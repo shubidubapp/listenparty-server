@@ -263,7 +263,6 @@ def queue_add(data):
     model.date = schema.date
     model.track = schema.track
     model.save()
-    key = cache.get(user_key())
 
     stream_name = current_user.stream.name
 
@@ -273,6 +272,7 @@ def queue_add(data):
                      data=schema.dict(exclude_none=True),
                      to=stream_room_key(stream_name), include_self=True)
 
+    key = cache.get(user_key(current_user.stream.streamer))
     sio.emit("add_queue", to=key, data={"track": schema.track}, include_self=True,
              callback=callback)
 
