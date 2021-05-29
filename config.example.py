@@ -10,6 +10,8 @@ class Config(object):
     APP_HOST = "127.0.0.1"
     APP_PORT = 5000
     SECRET_KEY = b'secret'
+    SESSION_COOKIE_SAMESITE = "None"
+    SESSION_COOKIE_SECURE = False
 
     SPOTIFY_CLIENT_ID = ''
     SPOTIFY_CLIENT_SECRET = ''
@@ -37,6 +39,9 @@ class ProductionConfig(Config):
     APP_HOST = "0.0.0.0"
     APP_PORT = 5000
     EXTERNAL_SCHEME = "https"
+
+    SESSION_COOKIE_SAMESITE = "None"
+    SESSION_COOKIE_SECURE = True
 
 
 flask_env = os.getenv("FLASK_ENV", default="production")
