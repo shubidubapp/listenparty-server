@@ -17,7 +17,7 @@ sio = SocketIO()
 
 def user_key(user=None):
     if user:
-        return f"user::{user.username}"
+        return f"user::{user.id}"
     return f"user::{current_user.id}"
 
 
@@ -224,11 +224,10 @@ def dj_add(data):
         model.sender = current_user
         model.stream = current_user.stream
         model.date = schema.date
-        model.who = schema.who
+        model.who = new_dj
         model.save()
 
-        sio.emit("chat_action",
-                 data={**schema.dict(), "sender": current_user.display_name},
+        sio.emit("chat_action", data=schema.dict(exclude_none=True), include_self=True,
                  to=stream_room_key(current_user.stream.name))
     else:
         schema = ErrorSchema(message=f"User, '{schema.who}', is already a DJ.")
@@ -243,18 +242,18 @@ def queue_add(data):
         schema = AddQueueSchema(**data, sender=current_user.display_name)
     except ValidationError as e:
         schema = ErrorSchema(errors=e.errors())
-        sio.emit("chat_action", data=schema.dict(exclude_none=True))
+        sio.emit("chat_action", data=schema.dict(exclude_none=True), to=request.sid)
         return
 
     if not (current_user == current_user.stream.streamer or current_user in current_user.stream.dj):
         schema = ErrorSchema(message="You dont have the permission for that")
-        sio.emit("chat_action", data=schema.dict(exclude_none=True))
+        sio.emit("chat_action", data=schema.dict(exclude_none=True), to=request.sid)
         return
 
     resp = oauth.spotify.get(f"tracks/{schema.track}")
     if resp.status_code != 200:
         schema = ErrorSchema(message="Invalid track")
-        sio.emit("chat_action", data=schema.dict(exclude_none=True))
+        sio.emit("chat_action", data=schema.dict(exclude_none=True), to=request.sid)
         return
 
     model = ChatQueue()
