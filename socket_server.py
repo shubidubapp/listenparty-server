@@ -204,7 +204,7 @@ def dj_add(data):
         schema = AddDJSchema(**data, sender=current_user.display_name)
     except ValidationError as e:
         schema = ErrorSchema(errors=e.errors())
-        sio.emit("chat_action", data=schema.dict(exclude_none=True))
+        sio.emit("chat_action", data=schema.dict(exclude_none=True), to=request.sid)
         return
 
     if not (current_user == current_user.stream.streamer or current_user in current_user.stream.dj):
@@ -285,7 +285,7 @@ def text_message(data):
         schema = MessageSchema(**data, sender=current_user.display_name)
     except ValidationError as e:
         schema = ErrorSchema(errors=e.errors())
-        sio.emit("chat_action", data=schema.dict(exclude_none=True))
+        sio.emit("chat_action", data=schema.dict(exclude_none=True), to=request.sid)
         return
 
     model = ChatMessage()

@@ -87,7 +87,7 @@ class ChatAction(Document):
 
 
 class ChatMessage(ChatAction):
-    message = StringField(max_length=60, required=True)
+    message = StringField(max_length=231, required=True)
 
 
 class ChatDJ(ChatAction):
