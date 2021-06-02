@@ -48,7 +48,7 @@ def connect():
     prev = cache.get(user_key())
     if prev:
         disconnect(prev)
-    cache.set(user_key(), request.sid)
+    cache.set(user_key(), request.sid, timeout=0)
 
 
 @sio.on('disconnect')
