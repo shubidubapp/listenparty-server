@@ -13,7 +13,7 @@ configure_global_logging()
 
 def init_app(_app):
     app.json_encoder = PydanticEncoder
-    oauth.init_app(_app)
+    oauth.init_app(_app, cache=cache)
     sio.init_app(
         _app,
         message_queue=f"redis://{_app.config['CACHE_REDIS_HOST']}",
